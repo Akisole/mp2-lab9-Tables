@@ -1,3 +1,4 @@
+#include "Stack.h"
 
 template <class TKey, class TValue>
 struct TRecord
@@ -12,8 +13,13 @@ class TTable
 protected:
 	int DataCount;
 	int Eff;
+	int pos;
 
 public:
+	TTable() {
+		DataCount = 0;
+		Eff = 0;
+	}
 	bool IsEmpty() const {
 		if (DataCount == 0) 
 			return true;
@@ -55,8 +61,14 @@ public:
 		arr = new TRecord<TKey, TValue>[maxSize];
 	}
 	~TArrayTable() { delete[] arr;}
-
 	//констр коп + присваивание
+
+	virtual void Reset { return curr = 0; }
+	virtual void GoNext() { return curr += 1; }
+	virtual bool IsEnd() {
+		if (curr == DataCount ) return true;
+		else return false; 
+	}
 };
 
 template <class TKey, class TValue>
@@ -189,7 +201,7 @@ public:
 			arr[i] = " ";
 	}
 
-	bool Find(TKey k) {
+	virtual bool Find(TKey k) {
 		curr = HashFunc(k)%size;
 		int freepos = -1;
 		for( int i=0; i<size; i++) {
@@ -204,25 +216,27 @@ public:
 			}
 			if(arr[curr].key == k)
 				return true;
-			if ((freepos == -1) && arr[curr].key == "&") {
+			if ((freepos == -1) && arr[curr].key == "&") 
 				freepos = curr;
-				curr +=(curr+step)%size;
-			}
+			curr +=(curr+step)%size; //?
 		}
 		return false;
 	}
-	void Delete(TKey k) {
+	virtual void Delete(TKey k) {
 		if(Find(k)) {
 			arr[case].key = '&';
 			DataCount--;
 		}
 	}
-	void Reset(){
+	virtual void Reset(){
 		curr =  0;
 		while ((arr[curr].key == "&" || arr[curr].key == " ") && curr<size)
 			curr++;
 	}
-
+	// Insert делаем Find, если не найдено, то на карент добавляем, иначе двигаем на шаг
+	// Reset() подстав curr на 1 не пустую (while)
+	// GoNext так же как Reset, но не будет curr=0, а будет curr++
+	// IsEnd() Curr=DataCount
 };
 
 template <class TKey, class TValue>
@@ -231,4 +245,94 @@ struct TNode
 	int bal;
 	TRecord<TKey, TValue> rec;
 	TNode *pLeft, *pRight;
+};
+
+template <class TKey, class TValue>
+class TreeTable: public  TTable<TKey, TValue> 
+{
+protected:
+	TNode *pRoot, *pCurr, **pRes;
+	TStack<TNode*> st;
+public:
+	TreeTable() {
+		pRoot = pCurr = pRes = NULL;
+	}
+	virtual bool Find(TKey k) {
+		*pRes = pRoot;
+		while (*pRes != NULL) {
+			Eff++;
+			if ((*pRes)->rec.key == k)
+				return true;
+			else {
+				if((*pRes)->rec.key < k)
+					pRes = &(*pRes->pRight);
+				else 
+					pRes = &(*pRes->pLeft);
+			}
+		}
+		return false;
+	}
+	virtual void Insert(TRecord<TKey, TValue> r) {
+		if (!Find(r.key)){
+			TNode *tmp = new TNode<TKey, TValue>;
+			tmp->rec = r;
+			tmp->pLeft = NULL;
+			tmp->pRight = NULL;
+			*pRes = tmp;
+		}
+	}
+	virtual void Delete(TKey k) {
+		if (Find(k)) {
+			TNode *tmp = *pRes;
+			if(tmp->pLeft == NULL)	*pRes = tmp->pRight;
+			else {
+				if (tmp->pRight == NULL)	*pRes = tmp->pLeft;
+				else {
+					TNode *p = tmp->pLeft, **pPrev = &(tmp->pLeft);
+					while (p->pRight != NULL) {
+						Eff++;
+						pPrev = &(p->pRight);
+						p = p->pRight;
+					}
+					tmp->rec = pRes;
+					tmp = p;
+					*pPrev = p->pLeft;
+				}
+				delete tmp;
+			}
+		}
+	}
+	virtual void Reset() {
+		pos = 0;
+		st.Clear();
+		pCurr = pRoot;
+		while (pCurr->pLeft != NULL) {
+			st.Push(pCurr);
+			pCurr = pCurr->pLeft;
+		}
+	}
+	virtual void GoNext() {
+		if(pCurr->pRight != NULL) {
+			pCurr = pCurr->pRight;
+			while (pCurr->pLeft != NULL) {
+				st.Push(pCurr);
+				pCurr = pCurr->pLeft;
+			}
+		}
+		else {
+			if (!st.IsFull()) //?
+				pCurr = st.Pop();
+		}
+		pos++;
+	}
+	virtual bool IsEnd() {
+		if (pos == DataCount)
+			return true;
+		else
+			return false;
+	}
+	void Print (pRoot *Curr) {
+		if(Curr->pLeft) Print(Curr->pLeft);
+		cout << pNode->rec;
+	} //говно какоето
 };
